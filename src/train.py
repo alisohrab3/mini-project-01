@@ -5,15 +5,16 @@ Usage (run from the project root):
     python src/train.py --cv-mode gridsearch
     python src/train.py --cv-mode randomized --n-iter 10
 """
-
 import argparse
+import time
+import shutil
 from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
 import joblib
 import numpy as np
 import pandas as pd
-
+from xgboost import XGBClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import RobustScaler
@@ -22,7 +23,15 @@ from sklearn.model_selection import StratifiedKFold, ParameterGrid, ParameterSam
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import average_precision_score, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    average_precision_score,
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+)
 from sklearn.neighbors import KNeighborsClassifier
 import utils
 
@@ -120,12 +129,18 @@ if TORCH_AVAILABLE:
         def predict(self, X):
             return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
+
+
+
+
+
 # ----------------------------------------------------------------------
 # Project paths and configuration
 # ----------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 MODEL_DIR = PROJECT_ROOT / "models"
+CANDIDATES_DIR = MODEL_DIR / "candidates"
 TRAIN_PATH = DATA_DIR / "train.csv"
 TARGET = "Class"
 RANDOM_STATE = 42
@@ -136,11 +151,55 @@ def build_preprocessor():
         ("pass", "passthrough", [f"V{i}" for i in range(1, 29)]),
     ], remainder="drop")
 
-def get_candidate_models(preprocessor):
+
+
+
+
+
+def get_candidate_models(preprocessor , y_train):
     candidates = {
+                "XGBoost": {
+            "pipeline": Pipeline([
+                ("prep", preprocessor),
+                ("model", XGBClassifier(
+                    random_state=RANDOM_STATE,
+                    eval_metric="logloss",
+                    use_label_encoder=False,
+                    n_jobs=-1,
+                    verbosity=0,
+                    scale_pos_weight=1.0,  # will be overwritten via params below
+                )),
+            ]),
+            "default_params": {
+                "model__n_estimators": 200,
+                "model__max_depth": 4,
+                "model__learning_rate": 0.1,
+                "model__subsample": 0.8,
+                "model__colsample_bytree": 0.8,
+                "model__scale_pos_weight": 1.0,
+            },
+            "grid": {
+                "model__n_estimators": [100, 200, 300],
+                "model__max_depth": [3, 4, 6],
+                "model__learning_rate": [0.05, 0.1, 0.2],
+                "model__subsample": [0.8, 1.0],
+                "model__colsample_bytree": [0.7, 0.8, 1.0],
+                "model__scale_pos_weight": [1.0],
+            },
+            "random": {
+                "model__n_estimators": [100, 150, 200, 300, 400],
+                "model__max_depth": [3, 4, 5, 6, 8],
+                "model__learning_rate": np.logspace(-2, -0.7, 8).tolist(),
+                "model__subsample": [0.7, 0.8, 0.9, 1.0],
+                "model__colsample_bytree": [0.6, 0.7, 0.8, 1.0],
+                "model__scale_pos_weight": [1.0],
+            },
+            "n_jobs": -1,
+        },
+
         "LogisticRegression": {
             "pipeline": Pipeline([("prep", preprocessor), ("model", LogisticRegression(class_weight="balanced", max_iter=2000, random_state=RANDOM_STATE))]),
-            "default_params": {"model__C": 1.0, "model__solver": "lbfgs"},
+            "default_params": {"model__C": 10.0, "model__solver": "lbfgs"},
             "grid": {"model__C": [0.01, 0.1, 1.0, 10.0], "model__solver": ["lbfgs", "liblinear"]},
             "random": {"model__C": np.logspace(-3, 1, 20).tolist()},
             "n_jobs": -1,
@@ -187,87 +246,293 @@ def parse_args():
     parser.add_argument("--models", nargs="*", default=None)
     return parser.parse_args()
 
+def calculate_probability_metrics(y_true, probabilities, threshold=0.5):
+    """Calculates threshold-independent and threshold-dependent metrics."""
+    probabilities = np.asarray(probabilities)
+    predictions = (probabilities >= threshold).astype(int)
+
+    tn, fp, fn, tp = confusion_matrix(
+        y_true,
+        predictions,
+        labels=[0, 1],
+    ).ravel()
+
+    return {
+        "pr_auc": average_precision_score(y_true, probabilities),
+        "roc_auc": roc_auc_score(y_true, probabilities),
+        "precision": precision_score(y_true, predictions, zero_division=0),
+        "recall": recall_score(y_true, predictions, zero_division=0),
+        "f1": f1_score(y_true, predictions, zero_division=0),
+        "accuracy": accuracy_score(y_true, predictions),
+        "false_positives": int(fp),
+        "false_negatives": int(fn),
+        "true_positives": int(tp),
+        "true_negatives": int(tn),
+    }
+
 def main():
     args = parse_args()
     np.random.seed(RANDOM_STATE)
+
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    CANDIDATES_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading training data from: {TRAIN_PATH}")
     train_df = pd.read_csv(TRAIN_PATH)
-    X_train, y_train = train_df.drop(columns=[TARGET]), train_df[TARGET]
+
+    X_train = train_df.drop(columns=[TARGET])
+    y_train = train_df[TARGET]
 
     preprocessor = build_preprocessor()
     all_candidates = get_candidate_models(preprocessor)
-    selected_names = args.models if args.models else list(all_candidates.keys())
-    candidates = {name: all_candidates[name] for name in selected_names if name in all_candidates}
 
-    cv = StratifiedKFold(n_splits=args.k_folds, shuffle=True, random_state=RANDOM_STATE)
+    selected_names = (
+        args.models
+        if args.models
+        else list(all_candidates.keys())
+    )
+
+    candidates = {
+        name: all_candidates[name]
+        for name in selected_names
+        if name in all_candidates
+    }
+
+    cv = StratifiedKFold(
+        n_splits=args.k_folds,
+        shuffle=True,
+        random_state=RANDOM_STATE,
+    )
+
     summary_rows = []
+    diagnostics = {}
+    diagnostics["_y_true"] = y_train.to_numpy()
 
     for model_name, config in candidates.items():
         print(f"\n=== Exhaustive Search: {model_name} ===")
         n_jobs = config.get("n_jobs", -1)
-        
+
         if args.cv_mode == "simple":
             param_list = [config["default_params"]]
         elif args.cv_mode == "gridsearch":
             param_list = list(ParameterGrid(config["grid"]))
         else:
-            param_list = list(ParameterSampler(config["random"], n_iter=args.n_iter, random_state=RANDOM_STATE))
+            param_list = list(
+                ParameterSampler(
+                    config["random"],
+                    n_iter=args.n_iter,
+                    random_state=RANDOM_STATE,
+                )
+            )
 
         for idx, params in enumerate(param_list):
-            print(f"  -> Combination {idx+1}/{len(param_list)}: {params}")
-            
+            print(f"  -> Combination {idx + 1}/{len(param_list)}: {params}")
+            start_time = time.perf_counter()
+
             current_pipeline = clone(config["pipeline"]).set_params(**params)
-            
-            # Generate OOF predictions
             oof_n_jobs = 1 if model_name == "MLP" else n_jobs
-            oof_probs = cross_val_predict(current_pipeline, X_train, y_train, cv=cv, method="predict_proba", n_jobs=oof_n_jobs)[:, 1]
-            cv_pr_auc = average_precision_score(y_train, oof_probs)
-            
+
+            # Generate OOF predictions
+            oof_probs = cross_val_predict(
+                current_pipeline,
+                X_train,
+                y_train,
+                cv=cv,
+                method="predict_proba",
+                n_jobs=oof_n_jobs,
+            )[:, 1]
+
             # Fit on entire training set
             current_pipeline.fit(X_train, y_train)
             train_probs = current_pipeline.predict_proba(X_train)[:, 1]
-            train_pr_auc = average_precision_score(y_train, train_probs)
-            
-            overfitting_gap = train_pr_auc - cv_pr_auc
+
+            elapsed_seconds = time.perf_counter() - start_time
+
+            valid_metrics = calculate_probability_metrics(y_train, oof_probs, threshold=0.5)
+            train_metrics = calculate_probability_metrics(y_train, train_probs, threshold=0.5)
+
             param_str = "_".join([f"{k.split('__')[-1]}={v}" for k, v in params.items()])
             model_filename = f"{model_name}_{param_str}.joblib"
-            
-            joblib.dump(current_pipeline, MODEL_DIR / model_filename)
 
-            # Baseline metrics for CSV
-            oof_preds = (oof_probs >= 0.5).astype(int)
-            tn, fp, fn, tp = confusion_matrix(y_train, oof_preds).ravel()
-            
-            summary_rows.append({
-                "model": f"{model_name} (Combo {idx+1})",
+            model_path = MODEL_DIR / model_filename
+            joblib.dump(current_pipeline, model_path)
+
+            row = {
+                "model": f"{model_name} (Combo {idx + 1})",
                 "family": model_name,
+                "combination": idx + 1,
                 "saved_filename": model_filename,
-                "best_cv_pr_auc": round(cv_pr_auc, 4),
-                "train_pr_auc": round(train_pr_auc, 4),
-                "overfitting_gap": round(overfitting_gap, 4),
-                "Accuracy": round(accuracy_score(y_train, oof_preds), 4),
-                "Precision (Fraud)": round(precision_score(y_train, oof_preds, zero_division=0), 4),
-                "Recall (Fraud)": round(recall_score(y_train, oof_preds, zero_division=0), 4),
-                "F1-Score": round(f1_score(y_train, oof_preds, zero_division=0), 4),
-                "False Positives": fp,
-                "False Negatives": fn,
                 "params": str(params),
+
+                # Validation / OOF metrics
+                "valid_pr_auc": round(valid_metrics["pr_auc"], 6),
+                "valid_roc_auc": round(valid_metrics["roc_auc"], 6),
+                "valid_precision": round(valid_metrics["precision"], 6),
+                "valid_recall": round(valid_metrics["recall"], 6),
+                "valid_f1": round(valid_metrics["f1"], 6),
+                "valid_accuracy": round(valid_metrics["accuracy"], 6),
+
+                # Train metrics
+                "train_pr_auc": round(train_metrics["pr_auc"], 6),
+                "train_roc_auc": round(train_metrics["roc_auc"], 6),
+                "train_precision": round(train_metrics["precision"], 6),
+                "train_recall": round(train_metrics["recall"], 6),
+                "train_f1": round(train_metrics["f1"], 6),
+                "train_accuracy": round(train_metrics["accuracy"], 6),
+
+                # Gaps (Train - Valid)
+                "pr_auc_gap": round(train_metrics["pr_auc"] - valid_metrics["pr_auc"], 6),
+                "roc_auc_gap": round(train_metrics["roc_auc"] - valid_metrics["roc_auc"], 6),
+                "precision_gap": round(train_metrics["precision"] - valid_metrics["precision"], 6),
+                "recall_gap": round(train_metrics["recall"] - valid_metrics["recall"], 6),
+                "f1_gap": round(train_metrics["f1"] - valid_metrics["f1"], 6),
+
+                # Error counts at threshold 0.5
+                "valid_false_positives": valid_metrics["false_positives"],
+                "valid_false_negatives": valid_metrics["false_negatives"],
+                "train_false_positives": train_metrics["false_positives"],
+                "train_false_negatives": train_metrics["false_negatives"],
+
+                # Timing
+                "training_time_seconds": round(elapsed_seconds, 4),
+                "training_time_minutes": round(elapsed_seconds / 60.0, 4),
+            }
+
+            summary_rows.append(row)
+
+            diagnostics[model_filename] = {
+                "family": model_name,
+                "model": row["model"],
+                "oof_probs": oof_probs,
+                "train_probs": train_probs,
+                "valid_pr_auc": valid_metrics["pr_auc"],
+            }
+
+    if not summary_rows:
+        raise RuntimeError("No models were trained.")
+
+    summary_df = pd.DataFrame(summary_rows)
+
+    # Main leaderboard, globally ranked by validation PR-AUC
+    summary_df = summary_df.sort_values(by="valid_pr_auc", ascending=False).reset_index(drop=True)
+
+    # Backward-compatible aliases for existing evaluate/plotting logic
+    summary_df["best_cv_pr_auc"] = summary_df["valid_pr_auc"]
+    summary_df["overfitting_gap"] = summary_df["pr_auc_gap"]
+    summary_df["Precision (Fraud)"] = summary_df["valid_precision"]
+    summary_df["Recall (Fraud)"] = summary_df["valid_recall"]
+    summary_df["F1-Score"] = summary_df["valid_f1"]
+    summary_df["False Positives"] = summary_df["valid_false_positives"]
+    summary_df["False Negatives"] = summary_df["valid_false_negatives"]
+
+    utils.save_table(summary_df, "exhaustive_model_comparison")
+    # Global top 5 configurations, across all families and combinations.
+    top5_overall_df = summary_df.head(5).copy()
+    utils.save_table(top5_overall_df, "top5_overall_models")
+
+
+    # Save top 3 candidates of each family
+    top3_rows = []
+    for family in summary_df["family"].unique():
+        family_df = (
+            summary_df[summary_df["family"] == family]
+            .sort_values("valid_pr_auc", ascending=False)
+            .head(3)
+            .copy()
+        )
+
+        for rank, (_, row) in enumerate(family_df.iterrows(), start=1):
+            source_path = MODEL_DIR / row["saved_filename"]
+            candidate_filename = f"{family}_rank{rank}_{source_path.name}"
+            destination_path = CANDIDATES_DIR / candidate_filename
+
+            shutil.copy2(source_path, destination_path)
+
+            top3_rows.append({
+                "family": family,
+                "rank_within_family": rank,
+                "model": row["model"],
+                "source_filename": row["saved_filename"],
+                "candidate_filename": candidate_filename,
+                "valid_pr_auc": row["valid_pr_auc"],
+                "valid_roc_auc": row["valid_roc_auc"],
+                "valid_precision": row["valid_precision"],
+                "valid_recall": row["valid_recall"],
+                "valid_f1": row["valid_f1"],
+                "train_pr_auc": row["train_pr_auc"],
+                "train_roc_auc": row["train_roc_auc"],
+                "train_precision": row["train_precision"],
+                "train_recall": row["train_recall"],
+                "train_f1": row["train_f1"],
+                "pr_auc_gap": row["pr_auc_gap"],
+                "roc_auc_gap": row["roc_auc_gap"],
+                "precision_gap": row["precision_gap"],
+                "recall_gap": row["recall_gap"],
+                "f1_gap": row["f1_gap"],
+                "training_time_seconds": row["training_time_seconds"],
             })
 
-    summary_df = pd.DataFrame(summary_rows).sort_values(by="best_cv_pr_auc", ascending=False)
-    utils.save_table(summary_df, "exhaustive_model_comparison")
-    
-    # ---------------------------------------------------------
-    # GENERATE THE NEW PER-FAMILY PLOTS
-    # ---------------------------------------------------------
-    for family in summary_df["family"].unique():
-        family_df = summary_df[summary_df["family"] == family]
-        utils.plot_hyperparameter_sweep(family_df, family_name=family)
+    top3_df = pd.DataFrame(top3_rows)
+    utils.save_table(top3_df, "top3_models_per_family")
 
-    print("\nTraining Complete! Check reports/figures/ for detailed hyperparameter sweep plots.")
-    print("Next step: Manually select your best model and run src/evaluate.py")
+    # ------------------------------------------------------------------
+    # Per-family visualizations
+    # ------------------------------------------------------------------
+    ranking_metrics = {
+        "pr_auc": "valid_pr_auc",
+        "roc_auc": "valid_roc_auc",
+        "precision": "valid_precision",
+        "recall": "valid_recall",
+        "f1": "valid_f1",
+    }
+
+    for family in summary_df["family"].unique():
+        family_df = summary_df[summary_df["family"] == family].copy()
+
+        utils.plot_family_metric_rankings(
+            family_df,
+            family_name=family,
+            metric_columns=ranking_metrics,
+        )
+
+        utils.plot_top3_family_comparison(
+            family_df,
+            family_name=family,
+        )
+
+        utils.plot_oof_pr_curves(
+            family_df,
+            diagnostics=diagnostics,
+            family_name=family,
+            top_n=3,
+        )
+
+        utils.plot_oof_probability_distributions(
+            family_df,
+            diagnostics=diagnostics,
+            family_name=family,
+            top_n=3,
+        )
+
+        utils.plot_hyperparameter_sweep(
+            family_df,
+            family_name=family,
+        )
+
+    # ------------------------------------------------------------------
+    # Global training-time visualizations
+    # ------------------------------------------------------------------
+    # Best five configurations across every model family and parameter set.
+    utils.plot_top5_overall_models(summary_df)
+    utils.plot_training_time_by_model(summary_df)
+    utils.plot_training_time_by_family(summary_df)
+
+    print("\nTraining Complete.")
+    print("All models saved in:", MODEL_DIR)
+    print("Top-3 candidates saved in:", CANDIDATES_DIR)
+    print("Tables saved in reports/tables/")
+    print("Figures saved in reports/figures/")
+    print("Next step: select a candidate and run src/evaluate.py")
 
 if __name__ == "__main__":
     main()
