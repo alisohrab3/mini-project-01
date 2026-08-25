@@ -1,0 +1,15 @@
+{
+  "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.1_max_depth=6_n_estimators=300_subsample=0.8.joblib",
+  "test_pr_auc": 0.8242386482589147,
+  "threshold": 0.0874936655163765,
+  "confusion_matrix": [
+    [
+      56647,
+      4
+    ],
+    [
+      21,
+      74
+    ]
+  ]
+}

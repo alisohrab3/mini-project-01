@@ -1,0 +1,4 @@
+ Threshold  Val_Precision  Val_Recall  Val_F1  Test_Precision  Test_Recall  Test_F1
+       0.3         0.0269      0.9079  0.0523          0.0259       0.8737   0.0503
+       0.5         0.0542      0.8947  0.1023          0.0519       0.8737   0.0980
+       0.7         0.1041      0.8947  0.1866          0.0975       0.8737   0.1755

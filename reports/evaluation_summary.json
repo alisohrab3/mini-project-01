@@ -1,0 +1,190 @@
+{
+    "top_5_pr_auc": [
+        {
+            "model_name": "XGBoost_colsample_bytree=1.0_learning_rate=0.05_max_depth=4_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.4185,
+            "pr_auc": 0.8419,
+            "roc_auc": 0.979,
+            "f1_score": 0.8471,
+            "recall": 0.7579,
+            "precision": 0.96
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.1_max_depth=3_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.2812,
+            "pr_auc": 0.838,
+            "roc_auc": 0.9783,
+            "f1_score": 0.8353,
+            "recall": 0.7474,
+            "precision": 0.9467
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=1.0_learning_rate=0.05_max_depth=4_n_estimators=200_subsample=0.8.joblib",
+            "optimal_threshold": 0.4355,
+            "pr_auc": 0.8377,
+            "roc_auc": 0.9772,
+            "f1_score": 0.8235,
+            "recall": 0.7368,
+            "precision": 0.9333
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.8_learning_rate=0.05_max_depth=4_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.3763,
+            "pr_auc": 0.8373,
+            "roc_auc": 0.9788,
+            "f1_score": 0.8402,
+            "recall": 0.7474,
+            "precision": 0.9595
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.8_learning_rate=0.05_max_depth=6_n_estimators=300_subsample=1.0.joblib",
+            "optimal_threshold": 0.3875,
+            "pr_auc": 0.8347,
+            "roc_auc": 0.9768,
+            "f1_score": 0.8521,
+            "recall": 0.7579,
+            "precision": 0.973
+        }
+    ],
+    "top_5_f1_score": [
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.2_max_depth=6_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.3444,
+            "pr_auc": 0.7881,
+            "roc_auc": 0.967,
+            "f1_score": 0.8605,
+            "recall": 0.7789,
+            "precision": 0.961
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.2_max_depth=6_n_estimators=200_subsample=1.0.joblib",
+            "optimal_threshold": 0.1456,
+            "pr_auc": 0.8194,
+            "roc_auc": 0.9556,
+            "f1_score": 0.8571,
+            "recall": 0.7895,
+            "precision": 0.9375
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.2_max_depth=6_n_estimators=200_subsample=0.8.joblib",
+            "optimal_threshold": 0.375,
+            "pr_auc": 0.7841,
+            "roc_auc": 0.9671,
+            "f1_score": 0.8555,
+            "recall": 0.7789,
+            "precision": 0.9487
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.1_max_depth=6_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.0875,
+            "pr_auc": 0.8242,
+            "roc_auc": 0.9738,
+            "f1_score": 0.8555,
+            "recall": 0.7789,
+            "precision": 0.9487
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=1.0_learning_rate=0.05_max_depth=6_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.3337,
+            "pr_auc": 0.8304,
+            "roc_auc": 0.9763,
+            "f1_score": 0.8538,
+            "recall": 0.7684,
+            "precision": 0.9605
+        }
+    ],
+    "top_5_recall": [
+        {
+            "model_name": "DecisionTree_max_depth=12_min_samples_leaf=10.joblib",
+            "optimal_threshold": 0.0,
+            "pr_auc": 0.7161,
+            "roc_auc": 0.8996,
+            "f1_score": 0.0033,
+            "recall": 1.0,
+            "precision": 0.0017
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=1.0_learning_rate=0.2_max_depth=4_n_estimators=100_subsample=0.8.joblib",
+            "optimal_threshold": 0.0,
+            "pr_auc": 0.7804,
+            "roc_auc": 0.9325,
+            "f1_score": 0.0033,
+            "recall": 1.0,
+            "precision": 0.0017
+        },
+        {
+            "model_name": "DecisionTree_max_depth=12_min_samples_leaf=5.joblib",
+            "optimal_threshold": 0.0,
+            "pr_auc": 0.5571,
+            "roc_auc": 0.8836,
+            "f1_score": 0.0033,
+            "recall": 1.0,
+            "precision": 0.0017
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=1.0_learning_rate=0.2_max_depth=6_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.0,
+            "pr_auc": 0.8003,
+            "roc_auc": 0.9484,
+            "f1_score": 0.0033,
+            "recall": 1.0,
+            "precision": 0.0017
+        },
+        {
+            "model_name": "DecisionTree_max_depth=12_min_samples_leaf=2.joblib",
+            "optimal_threshold": 0.0,
+            "pr_auc": 0.4859,
+            "roc_auc": 0.8835,
+            "f1_score": 0.0033,
+            "recall": 1.0,
+            "precision": 0.0017
+        }
+    ],
+    "top_5_roc_auc": [
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.2_max_depth=3_n_estimators=200_subsample=0.8.joblib",
+            "optimal_threshold": 0.2416,
+            "pr_auc": 0.8205,
+            "roc_auc": 0.9807,
+            "f1_score": 0.8208,
+            "recall": 0.7474,
+            "precision": 0.9103
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.8_learning_rate=0.1_max_depth=4_n_estimators=200_subsample=0.8.joblib",
+            "optimal_threshold": 0.1815,
+            "pr_auc": 0.8097,
+            "roc_auc": 0.9805,
+            "f1_score": 0.8402,
+            "recall": 0.7474,
+            "precision": 0.9595
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.1_max_depth=4_n_estimators=100_subsample=0.8.joblib",
+            "optimal_threshold": 0.4164,
+            "pr_auc": 0.8207,
+            "roc_auc": 0.9803,
+            "f1_score": 0.8471,
+            "recall": 0.7579,
+            "precision": 0.96
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.05_max_depth=3_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.2442,
+            "pr_auc": 0.8292,
+            "roc_auc": 0.9802,
+            "f1_score": 0.8229,
+            "recall": 0.7579,
+            "precision": 0.9
+        },
+        {
+            "model_name": "XGBoost_colsample_bytree=0.7_learning_rate=0.05_max_depth=4_n_estimators=300_subsample=0.8.joblib",
+            "optimal_threshold": 0.3351,
+            "pr_auc": 0.8335,
+            "roc_auc": 0.9801,
+            "f1_score": 0.8402,
+            "recall": 0.7474,
+            "precision": 0.9595
+        }
+    ]
+}

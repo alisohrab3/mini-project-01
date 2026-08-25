@@ -1,0 +1,7 @@
+family,total_training_time_seconds,mean_training_time_seconds,number_of_configurations
+KNN,2341.198,146.324875,16
+XGBoost,1099.6904,6.788212345679012,162
+MLP,581.5934,145.39835,4
+RandomForest,561.6445,46.80370833333333,12
+DecisionTree,94.5743,7.881191666666666,12
+LogisticRegression,43.1412,5.39265,8

@@ -1,0 +1,3 @@
+Model         Scaling  Val_Precision  Val_Recall  Val_F1  Val_PR-AUC  Val_ROC-AUC  Test_Precision  Test_Recall  Test_F1  Test_PR-AUC  Test_ROC-AUC
+  KNN Without Scaling         1.0000      0.0132  0.0260      0.0673       0.5906          1.0000       0.0211   0.0412       0.0401        0.5720
+  KNN    With Scaling         0.9254      0.8158  0.8671      0.8438       0.9276          0.9552       0.6737   0.7901       0.7692        0.8999
