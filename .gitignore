@@ -1,9 +1,30 @@
+# Python cache / compiled files
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Virtual environments
 .venv/
 venv/
+
+# Environment variables / secrets
 .env
+
+# Data files
 data/raw/*
 data/processed/*
-models/*
-reports/figures/*
+
+# Keep models in Git
+# Do NOT add models/ here
+
+# Ignore all report output by default
+reports/*
+
+# But keep experimental figures
+!reports/experiments/
+!reports/experiments/figures/
+!reports/experiments/figures/**
+
+# Keep normal figures, except SMOTE figures
+!reports/figures/
+!reports/figures/**
+reports/figures/smote/
