@@ -1,10 +1,4 @@
-"""train.py — exhaustively train, evaluate, and export all fraud model combinations.
 
-Usage (run from the project root):
-    python src/train.py --cv-mode simple
-    python src/train.py --cv-mode gridsearch
-    python src/train.py --cv-mode randomized --n-iter 10
-"""
 import argparse
 import time
 import shutil
@@ -35,9 +29,7 @@ from sklearn.metrics import (
 from sklearn.neighbors import KNeighborsClassifier
 import utils
 
-# ----------------------------------------------------------------------
 # PyTorch / MLP model
-# ----------------------------------------------------------------------
 try:
     import torch
     import torch.nn as nn
@@ -45,7 +37,7 @@ try:
     TORCH_AVAILABLE = True
 except Exception:
     TORCH_AVAILABLE = False
-    print("[warn] PyTorch not found — the MLP candidate will be skipped.")
+    print("PyTorch not found — the MLP will be skipped")
 
 if TORCH_AVAILABLE:
     class MLPModule(nn.Module):
@@ -130,13 +122,7 @@ if TORCH_AVAILABLE:
             return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
-
-
-
-
-# ----------------------------------------------------------------------
 # Project paths and configuration
-# ----------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 MODEL_DIR = PROJECT_ROOT / "models"
@@ -152,22 +138,16 @@ def build_preprocessor():
     ], remainder="drop")
 
 
-
-
-
-
-def get_candidate_models(preprocessor , y_train):
+def get_candidate_models(preprocessor):
     candidates = {
-                "XGBoost": {
+        "XGBoost": {
             "pipeline": Pipeline([
                 ("prep", preprocessor),
                 ("model", XGBClassifier(
                     random_state=RANDOM_STATE,
                     eval_metric="logloss",
-                    use_label_encoder=False,
                     n_jobs=-1,
                     verbosity=0,
-                    scale_pos_weight=1.0,  # will be overwritten via params below
                 )),
             ]),
             "default_params": {
@@ -176,7 +156,6 @@ def get_candidate_models(preprocessor , y_train):
                 "model__learning_rate": 0.1,
                 "model__subsample": 0.8,
                 "model__colsample_bytree": 0.8,
-                "model__scale_pos_weight": 1.0,
             },
             "grid": {
                 "model__n_estimators": [100, 200, 300],
@@ -184,7 +163,6 @@ def get_candidate_models(preprocessor , y_train):
                 "model__learning_rate": [0.05, 0.1, 0.2],
                 "model__subsample": [0.8, 1.0],
                 "model__colsample_bytree": [0.7, 0.8, 1.0],
-                "model__scale_pos_weight": [1.0],
             },
             "random": {
                 "model__n_estimators": [100, 150, 200, 300, 400],
@@ -192,11 +170,9 @@ def get_candidate_models(preprocessor , y_train):
                 "model__learning_rate": np.logspace(-2, -0.7, 8).tolist(),
                 "model__subsample": [0.7, 0.8, 0.9, 1.0],
                 "model__colsample_bytree": [0.6, 0.7, 0.8, 1.0],
-                "model__scale_pos_weight": [1.0],
             },
             "n_jobs": -1,
         },
-
         "LogisticRegression": {
             "pipeline": Pipeline([("prep", preprocessor), ("model", LogisticRegression(class_weight="balanced", max_iter=2000, random_state=RANDOM_STATE))]),
             "default_params": {"model__C": 10.0, "model__solver": "lbfgs"},
@@ -247,7 +223,6 @@ def parse_args():
     return parser.parse_args()
 
 def calculate_probability_metrics(y_true, probabilities, threshold=0.5):
-    """Calculates threshold-independent and threshold-dependent metrics."""
     probabilities = np.asarray(probabilities)
     predictions = (probabilities >= threshold).astype(int)
 
@@ -332,7 +307,7 @@ def main():
             current_pipeline = clone(config["pipeline"]).set_params(**params)
             oof_n_jobs = 1 if model_name == "MLP" else n_jobs
 
-            # Generate OOF predictions
+            #OOF predictions
             oof_probs = cross_val_predict(
                 current_pipeline,
                 X_train,
@@ -342,7 +317,7 @@ def main():
                 n_jobs=oof_n_jobs,
             )[:, 1]
 
-            # Fit on entire training set
+            
             current_pipeline.fit(X_train, y_train)
             train_probs = current_pipeline.predict_proba(X_train)[:, 1]
 
@@ -364,7 +339,7 @@ def main():
                 "saved_filename": model_filename,
                 "params": str(params),
 
-                # Validation / OOF metrics
+                #  OOF metrics
                 "valid_pr_auc": round(valid_metrics["pr_auc"], 6),
                 "valid_roc_auc": round(valid_metrics["roc_auc"], 6),
                 "valid_precision": round(valid_metrics["precision"], 6),
@@ -380,7 +355,7 @@ def main():
                 "train_f1": round(train_metrics["f1"], 6),
                 "train_accuracy": round(train_metrics["accuracy"], 6),
 
-                # Gaps (Train - Valid)
+                # Gaps
                 "pr_auc_gap": round(train_metrics["pr_auc"] - valid_metrics["pr_auc"], 6),
                 "roc_auc_gap": round(train_metrics["roc_auc"] - valid_metrics["roc_auc"], 6),
                 "precision_gap": round(train_metrics["precision"] - valid_metrics["precision"], 6),
@@ -413,10 +388,10 @@ def main():
 
     summary_df = pd.DataFrame(summary_rows)
 
-    # Main leaderboard, globally ranked by validation PR-AUC
+    # leaderboard
     summary_df = summary_df.sort_values(by="valid_pr_auc", ascending=False).reset_index(drop=True)
 
-    # Backward-compatible aliases for existing evaluate/plotting logic
+
     summary_df["best_cv_pr_auc"] = summary_df["valid_pr_auc"]
     summary_df["overfitting_gap"] = summary_df["pr_auc_gap"]
     summary_df["Precision (Fraud)"] = summary_df["valid_precision"]
@@ -426,12 +401,11 @@ def main():
     summary_df["False Negatives"] = summary_df["valid_false_negatives"]
 
     utils.save_table(summary_df, "exhaustive_model_comparison")
-    # Global top 5 configurations, across all families and combinations.
+    # Global top 5 
     top5_overall_df = summary_df.head(5).copy()
     utils.save_table(top5_overall_df, "top5_overall_models")
 
-
-    # Save top 3 candidates of each family
+    # Save top 3 
     top3_rows = []
     for family in summary_df["family"].unique():
         family_df = (
@@ -475,9 +449,8 @@ def main():
     top3_df = pd.DataFrame(top3_rows)
     utils.save_table(top3_df, "top3_models_per_family")
 
-    # ------------------------------------------------------------------
-    # Per-family visualizations
-    # ------------------------------------------------------------------
+
+    # Per-family
     ranking_metrics = {
         "pr_auc": "valid_pr_auc",
         "roc_auc": "valid_roc_auc",
@@ -519,10 +492,8 @@ def main():
             family_name=family,
         )
 
-    # ------------------------------------------------------------------
-    # Global training-time visualizations
-    # ------------------------------------------------------------------
-    # Best five configurations across every model family and parameter set.
+
+
     utils.plot_top5_overall_models(summary_df)
     utils.plot_training_time_by_model(summary_df)
     utils.plot_training_time_by_family(summary_df)
