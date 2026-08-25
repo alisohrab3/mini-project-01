@@ -4,7 +4,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from utils import save_table
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
@@ -14,23 +13,21 @@ TEST_DATA_PATH = DATA_DIR / "test.csv"
 
 
 def perform_eda(df):
+
     print("\n" + "="*50)
-    print("PHASE 1 & 2: DATA PREPARATION & EDA")
+    print("DATA PREPARATION & EDA")
     print("="*50)
     
-    # dataset structure
     n_samples, n_features = df.shape
     print(f"Number of Samples: {n_samples}")
     print(f"Number of Features: {n_features}")
     
-    #Missing value analysis
     missing_values = df.isnull().sum().sum()
     print(f"Missing Values: {missing_values}")
     if missing_values > 0:
         print("Detailed missing values per column:")
         print(df.isnull().sum()[df.isnull().sum() > 0])
         
-    # class distribution
     if "Class" in df.columns:
         class_dist = df["Class"].value_counts()
         legit_count = class_dist.get(0, 0)
@@ -43,8 +40,11 @@ def perform_eda(df):
         print(f"  Fraud Ratio:    ~{fraud_ratio:.3f}%")
         
     print("="*50 + "\n")
+    
+
     print("Generating descriptive statistics...")
     stats_df = df.describe().T.reset_index().rename(columns={'index': 'Feature'})
+    
     save_table(stats_df, name="descriptive_statistics", sub="tables")
     
     return stats_df
@@ -57,8 +57,8 @@ def load_and_clean_data(file_path):
     print(f"Loading raw dataset from {file_path}...")
     df = pd.read_csv(file_path)
     
-
     perform_eda(df)
+
     initial_shape = df.shape
     df = df.drop_duplicates()
     duplicates_removed = initial_shape[0] - df.shape[0]
